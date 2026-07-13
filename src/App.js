@@ -271,6 +271,7 @@ function AITutor({ topic, chatHistory, setChatHistory }) {
       }));
     };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
