@@ -1,5 +1,69 @@
 # Async Apex Practice App — Build Notes
 
+## How to Create a React App from Scratch
+
+### Step 1 — Scaffold the app
+Run this from the folder where you want the project to live:
+```
+npx create-react-app my-app-name
+cd my-app-name
+```
+This generates the full folder structure, `package.json`, and all scripts. The app name becomes the folder name — no spaces.
+
+### Step 2 — Understand the structure
+```
+my-app-name/
+├── src/
+│   └── App.js       # your main component — edit this
+├── public/
+├── package.json     # dependencies and scripts
+└── node_modules/    # auto-generated, never commit this
+```
+
+### Step 3 — Start the dev server
+```
+npm start
+```
+Opens the app at `http://localhost:3000`. Hot reloads on every save — no restart needed.
+
+### Step 4 — Edit App.js
+Replace the default content with your own component. In React, `App.js` contains everything: structure (JSX), styles (inline JS objects), and logic (useState, useEffect, handlers). This is intentional — React organizes code by **component**, not by file type.
+
+### Step 5 — Install packages as needed
+```
+npm install <package-name>
+```
+This adds the package to `node_modules` and registers it in `package.json`. Always run this from inside the project folder.
+
+### Step 6 — Add a .gitignore
+Make sure `node_modules` and `.env` are listed. `node_modules` is never committed — anyone cloning the repo runs `npm install` to regenerate it.
+
+### Step 7 — Swap window.storage for localStorage (if migrating from Cowork)
+If your JSX was built as a Cowork artifact, it uses `window.storage` which is Cowork-specific and won't work in a standalone React app. Replace it with `localStorage`:
+
+```js
+// Load on mount — replace window.storage.get with:
+const saved = localStorage.getItem('my-key');
+if (saved) {
+  const data = JSON.parse(saved);
+  // set your state from data
+}
+
+// Save on change — replace window.storage.set with:
+localStorage.setItem('my-key', JSON.stringify({ ...yourData }));
+```
+
+Watch for leftover `window.storage` lines after the swap — having two `const data` declarations in the same block will cause a compile error.
+
+---
+
+### Common mistakes
+- Running `npm install` or `npm start` from the wrong folder — always `cd` into the project first
+- Creating `server.js` or `.env` in the parent folder instead of the project folder
+- Referencing theme variables as strings (`"theme.bg"`) instead of JS expressions (`{theme.bg}`)
+
+---
+
 ## React App Basics
 
 - A React app is bootstrapped with `create-react-app`, which generates the folder structure, `package.json`, and scripts
@@ -56,16 +120,28 @@ Run a small Node.js server alongside the React app. It receives requests from th
 
 ---
 
-### ⬜ Option 2 — CRA Built-in Proxy (not yet done)
+### ✅ Option 2 — CRA Built-in Proxy (completed)
 
-Create React App can proxy API requests automatically, eliminating the need for a separate terminal.
+Create React App can proxy API requests automatically, eliminating the need for CORS headers.
 
-**Steps (preview):**
-1. Add `"proxy": "http://localhost:3001"` to `package.json`
-2. Change fetch URL in `App.js` to just `/api/chat` (no hostname needed)
-3. CRA dev server forwards `/api/*` requests to your Express server automatically
+**Steps:**
+1. Copy `server.js` and `.env` from Option 1 into the new project and `npm install express dotenv`
+2. Add one line to `package.json`:
+   ```json
+   "proxy": "http://localhost:3001"
+   ```
+3. Remove `cors` from `server.js` — not needed since requests go through the same origin
+4. Write fetch calls using a relative URL — no hostname required:
+   ```js
+   fetch('/api/chat', { ... })
+   ```
+5. Run `node server.js` in one terminal, `npm start` in another
 
-**Key difference from Option 1:** Same Express server, but the React app routes through CRA's proxy so you don't need to hardcode `localhost:3001` in your fetch calls.
+**Key difference from Option 1:** The fetch URL is just `/api/chat` instead of `http://localhost:3001/api/chat`. CRA's dev server intercepts requests that start with `/api` and forwards them to port 3001. Since the browser only ever talks to port 3000, there's no cross-origin issue — no `cors()` middleware needed.
+
+**How to verify it's working:** Open DevTools → Network tab, send a message, and confirm the request goes to `localhost:3000/api/chat` (not 3001). The proxy is invisible to the browser.
+
+**Gotcha:** The `"proxy"` field in `package.json` only works in development (`npm start`). In production you need a real server or serverless functions — which is what Option 3 solves.
 
 ---
 
