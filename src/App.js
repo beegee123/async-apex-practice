@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 const TOPICS = [
   {
@@ -259,10 +259,13 @@ function AITutor({ topic, chatHistory, setChatHistory }) {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
 
-  const messages = chatHistory[topic.id] || [{
-  role: 'assistant',
-  content: `Hey! I'm your Async Apex tutor. Ask me anything about **${topic.title}**...`
-    }];
+  const messages = useMemo(() =>
+    chatHistory[topic.id] || [{
+      role: 'assistant',
+      content: `Hey! I'm your Async Apex tutor. Ask me anything about **${topic.title}**...`
+    }],
+    [chatHistory, topic.id, topic.title]
+  );
 
     const setMessages = (updater) => {
       setChatHistory(prev => ({
@@ -271,7 +274,6 @@ function AITutor({ topic, chatHistory, setChatHistory }) {
       }));
     };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
