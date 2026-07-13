@@ -145,17 +145,48 @@ Create React App can proxy API requests automatically, eliminating the need for 
 
 ---
 
-### ⬜ Option 3 — Vercel Serverless Functions (not yet done)
+### ✅ Option 3 — Vercel Serverless Functions (completed)
 
-Deploy the app to Vercel and replace `server.js` with a serverless API route. No separate server process needed — Vercel handles it.
+Deploy the app to Vercel and replace `server.js` with a serverless API route. No Express, no CORS, no separate server process — Vercel handles everything.
 
-**Steps (preview):**
-1. Create an `api/chat.js` file (Vercel treats files in `/api` as serverless functions)
-2. Store `ANTHROPIC_API_KEY` as a Vercel environment variable in the dashboard
-3. Deploy with `vercel --prod`
-4. Update fetch URL in `App.js` to `/api/chat`
+**Steps:**
+1. Create an `api/` folder in the project root with a `chat.js` file — Vercel automatically treats any file in `/api` as a serverless function
+2. Write the handler using Vercel's function signature:
+   ```js
+   export default async function handler(req, res) {
+     if (req.method !== 'POST') return res.status(405).end();
+     const response = await fetch('https://api.anthropic.com/v1/messages', {
+       method: 'POST',
+       headers: {
+         'Content-Type': 'application/json',
+         'x-api-key': process.env.ANTHROPIC_API_KEY,
+         'anthropic-version': '2023-06-01',
+       },
+       body: JSON.stringify(req.body),
+     });
+     const data = await response.json();
+     res.json(data);
+   }
+   ```
+3. Push to GitHub
+4. Go to vercel.com → Add New Project → import the GitHub repo
+5. Add `ANTHROPIC_API_KEY` under Project Settings → Environment Variables
+6. Vercel auto-deploys on every push to `main`
 
-**Key difference:** No server to run or maintain. Scales automatically. This is the production-ready approach.
+**Optional — local dev with `vercel dev`:** create a `.env` file with `ANTHROPIC_API_KEY=sk-ant-...` and run `vercel dev` instead of `npm start`. It runs both the React app and the `api/` functions together locally. Useful for testing serverless functions before pushing, but not required — you can just push and let Vercel deploy.
+
+**Fetch URL in App.js:** just `/api/chat` — same as Option 2, no hostname needed.
+
+**Key differences from Options 1 & 2:**
+- No `server.js`, no `express`, no `cors`, no `dotenv` package
+- No separate terminal to run — one command (`vercel dev`) runs everything
+- Actually deploys to a public URL — this is the only option that works in production
+- API key stored in Vercel dashboard, not just a local `.env` file
+
+**Gotchas:**
+- Always save your files before committing — an empty `api/chat.js` deploys as a broken function with no error until runtime
+- Vercel redeploys automatically on every `git push` to `main`
+- `vercel dev` requires a Vercel account login even for local testing
 
 ---
 
