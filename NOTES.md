@@ -332,6 +332,70 @@ await supabase.from('progress')
 
 ---
 
+**Supabase for async-apex-practice (chat history)**
+
+Same Supabase project, different table. One Supabase project can serve multiple apps — just use separate tables.
+
+**Table setup:**
+- Table name: `chat_history`
+- Columns: `id` (int8, primary key), `history` (jsonb)
+- Insert one empty row (id: 1) as the single upsert target
+- Add RLS policy: `CREATE POLICY "allow all" ON chat_history FOR ALL USING (true) WITH CHECK (true);`
+
+**What's stored in `history`:** a JSON object keyed by topic id — e.g. `{ "future": [{role, content}, ...], "batch": [...] }`. Each key is one topic's full message array.
+
+**Load on mount:**
+```js
+useEffect(() => {
+  async function load() {
+    const { data } = await supabase
+      .from('chat_history')
+      .select('*')
+      .single();
+    if (data?.history) setChatHistory(data.history);
+    setHistoryLoaded(true);  // always set, even if no data
+  }
+  load();
+}, []);
+```
+
+**Save on change:**
+```js
+useEffect(() => {
+  if (Object.keys(chatHistory).length === 0) return;  // skip if empty
+  supabase.from('chat_history')
+    .upsert({ id: 1, history: chatHistory });
+}, [chatHistory]);
+```
+
+**The timing problem and fix — `historyLoaded`:**
+React renders immediately. Without a guard, the component mounts, renders with empty `chatHistory`, sees no stored history for the current topic, and resets to the default greeting — *before* Supabase finishes loading. The fix is a loading flag:
+
+```js
+const [historyLoaded, setHistoryLoaded] = useState(false);
+
+// At the end of the load() function:
+setHistoryLoaded(true);
+
+// Before the main return:
+if (!historyLoaded) return <div>Loading...</div>;
+```
+
+This holds the render until Supabase data is available, so the first render always has the correct history.
+
+**`useMemo` for messages:** because `messages` is derived from `chatHistory`, it needs `useMemo` to stay stable as a `useEffect` dependency. Without it, ESLint treats it as an unstable expression and causes build errors on Vercel.
+
+```js
+const messages = useMemo(() =>
+  chatHistory[topic.id] || [{ role: 'assistant', content: `...` }],
+  [chatHistory, topic.id, topic.title]
+);
+```
+
+**Deploying to Vercel:** add `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_ANON_KEY` to Project Settings → Environment Variables in the Vercel dashboard, then redeploy.
+
+---
+
 ## Post-PD1 Project Ideas
 
 ### 1. Salesforce Integration for Study Apps
