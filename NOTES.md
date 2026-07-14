@@ -190,6 +190,27 @@ Deploy the app to Vercel and replace `server.js` with a serverless API route. No
 
 ---
 
+## PD1 Flashcard App — Design Decisions
+
+### How to generate flashcards — 3 options considered
+
+**Option 1 — AI on demand** ✅ (chosen)
+User picks a topic, AI generates a fresh set of cards each time.
+- Pros: different cards every session so you're not memorizing the same questions; more realistic use of AI; cards never go stale
+- Why chosen: best for active recall — if you see the same cards every time you start pattern-matching the answers rather than actually learning the material
+
+**Option 2 — Pre-built + AI**
+A hardcoded set of cards per topic, plus a button to generate more with AI.
+- Pros: cards available instantly without an API call; consistent baseline set of questions
+- Cons: pre-built cards go stale and get memorized quickly; more maintenance to keep them updated
+
+**Option 3 — Free-text input**
+User types any Salesforce topic and AI generates cards for it.
+- Pros: maximum flexibility; not limited to the 6 week plan
+- Cons: more open-ended means less focused exam prep; user has to know what to ask for
+
+---
+
 ## Markdown Rendering
 
 By default React renders text as plain strings. To render AI responses with formatting:
@@ -228,5 +249,138 @@ useEffect(() => {
 }, [chatHistory]);
 ```
 
-### Problem 3 — No memory across devices / users (not yet solved)
-`localStorage` is browser-specific. For true persistence, chat history would need to be saved to a backend database.
+### Problem 3 — No memory across devices / users
+
+`localStorage` is browser and device specific. Data saved on one machine is invisible on another browser, phone, or computer. For true cross-device persistence, data needs to live in a server-side database.
+
+**Database options (simplest to most complex):**
+
+| Option | Notes |
+|--------|-------|
+| **Supabase** | Free hosted Postgres. Simple REST API, works great with React and Vercel. Best choice for hobby projects. |
+| **Firebase** | Google's real-time database. Free tier, popular for hobby apps. |
+| **SQLite + server** | File-based database on your own server (Railway, Render). More control but you manage the server. |
+| **Salesforce custom object** | Store progress in your Salesforce dev org. Accessible anywhere you can log into Salesforce. Best post-PD1 project. |
+
+**Fix — Supabase (completed in pd1-tracker-react):**
+
+**Step 1 — Create Supabase project**
+- Sign up at supabase.com → New Project
+- Go to Table Editor → New Table, name it `progress`
+- Add columns: `statuses` (jsonb), `scores` (jsonb), `dark_mode` (bool)
+- Keep RLS enabled — add a policy instead of disabling it:
+  ```sql
+  CREATE POLICY "allow all" ON progress
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+  ```
+- Insert one empty row (id: 1) — this is the single row we always upsert to
+
+**Step 2 — Get credentials**
+- Project Settings → API → copy Project URL (base URL only, no `/rest/v1/`) and anon public key
+
+**Step 3 — Install and initialize**
+```
+npm install @supabase/supabase-js
+```
+Add to `.env` (note `REACT_APP_` prefix required by CRA):
+```
+REACT_APP_SUPABASE_URL=https://xxxx.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=your-anon-key
+```
+Restart `npm start` after adding env vars — CRA only reads `.env` on startup.
+
+Initialize client in `App.js`:
+```js
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
+```
+
+**Step 4 — Replace localStorage with Supabase**
+
+Load on mount:
+```js
+const { data } = await supabase.from('progress').select('*').single();
+if (data) {
+  setStatuses(data.statuses || {});
+  setScores(data.scores || { exam1: "", exam2: "" });
+}
+```
+
+Save on change (upsert always updates the same row):
+```js
+await supabase.from('progress')
+  .upsert({ id: 1, statuses: nextStatuses, scores: nextScores, dark_mode: darkMode });
+```
+
+**Step 5 — Add env vars to Vercel**
+- Project Settings → Environment Variables
+- Add `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_ANON_KEY`
+- Redeploy
+
+**Key lessons:**
+- The Supabase URL must be the base URL only — the client adds `/rest/v1/` itself
+- `upsert` with a fixed `id: 1` means one row gets overwritten on every save — no history, just current state
+- RLS should stay enabled — add a permissive policy rather than disabling it entirely
+- One Supabase project can serve multiple apps — just use separate tables
+
+**Key difference from localStorage:** data lives in Postgres hosted by Supabase — accessible from any device, any browser, anywhere. Verified working across desktop and phone.
+
+---
+
+## Post-PD1 Project Ideas
+
+### 1. Salesforce Integration for Study Apps
+Connect the study apps to a Salesforce dev org via the REST API:
+- Replace `localStorage` with a Salesforce custom object for cross-device persistence
+- Authenticate with OAuth using Salesforce credentials
+- The tracker could save progress to Salesforce records
+- The flashcard app could pull topics from Salesforce data
+
+This teaches how React apps communicate with Salesforce APIs — a real-world skill beyond the PD1 curriculum.
+
+---
+
+### 2. Org Health Dashboard
+A custom React dashboard showing live metrics from your Salesforce org — more focused and developer-specific than Salesforce's built-in Optimizer/Health Check tools.
+
+**What it would show:**
+- Apex test coverage % (flags if below 75%)
+- Scheduled and batch job statuses
+- Governor limit proximity
+- Recent debug logs
+- Custom object and field counts
+
+**Why it's different from native Salesforce tools:**
+- You choose what metrics matter to you
+- Real-time data, not a report you manually re-run
+- AI layer (Claude) can interpret the metrics and flag issues — e.g. "your test coverage dropped this week, here's what to fix before your next deployment"
+
+**Tech stack:** React + Salesforce REST API + OAuth + Claude (optional)
+
+**Build order:**
+1. Get Salesforce OAuth connection working
+2. Display raw metrics in a dashboard
+3. Add Claude as a "diagnose my org" button
+
+---
+
+### 3. Automation Toggle Tool (inspired by SF Switch)
+A tool to turn validation rules, flows, and triggers on/off individually or in bulk — something the native Salesforce UI makes painfully slow.
+
+**The problem it solves:**
+Developers constantly need to disable automations during data migrations, deployments, or debugging. In Salesforce you have to open each one individually. A custom tool lets you do it in bulk with one click.
+
+**Features:**
+- List all validation rules, flows, and triggers in the org
+- Toggle active/inactive individually or bulk select by type
+- Filter by object, type, or name
+- Claude could summarize what each automation does before you disable it — preventing accidental breakage
+
+**Tech stack:** React + Salesforce Metadata API or Tooling API + OAuth + Claude (optional)
+
+**Why it's valuable:** This is a tool a Salesforce developer would actually use on real client projects — and potentially sell as a managed package or AppExchange app.

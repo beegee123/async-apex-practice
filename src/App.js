@@ -1,6 +1,11 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useState, useRef, useEffect, useMemo } from "react";
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
 
 const TOPICS = [
   {
@@ -416,10 +421,26 @@ Common gotchas for this topic: ${topic.gotchas.join("; ")}`,
 export default function AsyncApexPractice() {
   const [activeId, setActiveId] = useState("future");
   const [checked, setChecked] = useState({});
-  const [chatHistory, setChatHistory] = useState(() => {
-  const saved = localStorage.getItem('apexChatHistory');
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [chatHistory, setChatHistory] = useState({});
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase
+        .from('chat_history')
+        .select('*')
+        .single();
+      if (data?.history) setChatHistory(data.history);
+      setHistoryLoaded(true);
+    }
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (Object.keys(chatHistory).length === 0) return;
+    supabase.from('chat_history')
+      .upsert({ id: 1, history: chatHistory });
+  }, [chatHistory]);
 
   const topic = TOPICS.find((t) => t.id === activeId);
 
@@ -433,6 +454,12 @@ export default function AsyncApexPractice() {
     const done = t.exercises.filter((_, i) => checked[`${topicId}-${i}`]).length;
     return { done, total: t.exercises.length };
   };
+
+  if (!historyLoaded) return (
+    <div style={{ minHeight: "100vh", background: "#060b14", color: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      Loading...
+    </div>
+  );
 
   return (
     <div style={{
