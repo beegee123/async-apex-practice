@@ -525,6 +525,7 @@ export default function AsyncApexPractice() {
         .select('*')
         .single();
       if (data?.history) setChatHistory(data.history);
+      if (data?.checked) setChecked(data.checked);
       setHistoryLoaded(true);
     }
     load();
@@ -535,6 +536,12 @@ export default function AsyncApexPractice() {
     supabase.from('chat_history')
       .upsert({ id: 1, history: chatHistory });
   }, [chatHistory]);
+
+  useEffect(() => {
+    if (!historyLoaded) return;
+    supabase.from('chat_history')
+      .upsert({ id: 1, checked });
+  }, [checked, historyLoaded]);
 
   const topic = TOPICS.find((tp) => tp.id === activeId);
 
