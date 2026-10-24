@@ -1,12 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useState, useRef, useEffect, useMemo } from "react";
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_ANON_KEY
-);
+import { supabase, useSession, authHeaders } from './pd1hub';
 
 const TOPICS = [
   {
@@ -376,7 +371,7 @@ function AITutor({ topic, chatHistory, setChatHistory, t }) {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 1000,
@@ -496,6 +491,7 @@ Common gotchas for this topic: ${topic.gotchas.join("; ")}`,
 }
 
 export default function AsyncApexPractice() {
+  const userId = useSession().user.id;
   const [activeId, setActiveId] = useState("future");
   const [checked, setChecked] = useState({});
   const [chatHistory, setChatHistory] = useState({});
@@ -523,25 +519,26 @@ export default function AsyncApexPractice() {
       const { data } = await supabase
         .from('chat_history')
         .select('*')
-        .single();
+        .eq('user_id', userId)
+        .maybeSingle();
       if (data?.history) setChatHistory(data.history);
       if (data?.checked) setChecked(data.checked);
       setHistoryLoaded(true);
     }
     load();
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (Object.keys(chatHistory).length === 0) return;
     supabase.from('chat_history')
-      .upsert({ id: 1, history: chatHistory });
-  }, [chatHistory]);
+      .upsert({ user_id: userId, history: chatHistory }, { onConflict: 'user_id' });
+  }, [chatHistory, userId]);
 
   useEffect(() => {
     if (!historyLoaded) return;
     supabase.from('chat_history')
-      .upsert({ id: 1, checked });
-  }, [checked, historyLoaded]);
+      .upsert({ user_id: userId, checked }, { onConflict: 'user_id' });
+  }, [checked, historyLoaded, userId]);
 
   const topic = TOPICS.find((tp) => tp.id === activeId);
 

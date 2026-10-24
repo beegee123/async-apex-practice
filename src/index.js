@@ -2,12 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { PD1HubGate } from './pd1hub';
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <PD1HubGate app="apex">
+      <App />
+    </PD1HubGate>
   </React.StrictMode>
 );
 
