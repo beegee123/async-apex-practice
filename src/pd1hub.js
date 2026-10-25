@@ -28,6 +28,18 @@ export const APPS = [
     blurb: "The 13-week combined track: Python, JS, React, PD1 and AI." },
 ];
 
+// App icons (same artwork as each app's favicon). Use with iconSrc(app).
+const ICONS = {
+  hub: '<rect width="64" height="64" rx="14" fill="#1C2226"/><rect x="15" y="15" width="14" height="14" rx="3" fill="#E0876A"/><rect x="35" y="15" width="14" height="14" rx="3" fill="#4DD0C4"/><rect x="15" y="35" width="14" height="14" rx="3" fill="#AD93E8"/><rect x="35" y="35" width="14" height="14" rx="3" fill="#6FA8DC"/>',
+  tracker: '<rect width="64" height="64" rx="14" fill="#B5563C"/><path d="M16 22l4 4 7-8" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="32" y="20" width="17" height="5" rx="2" fill="#fff"/><path d="M16 40l4 4 7-8" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="32" y="38" width="12" height="5" rx="2" fill="#fff"/>',
+  flashcards: '<rect width="64" height="64" rx="14" fill="#1B9C93"/><polygon points="21.7,12.2 49.4,16.1 46.3,37.8 18.6,33.9" fill="#8DCEC9" stroke="#8DCEC9" stroke-width="6" stroke-linejoin="round"/><rect x="15" y="24" width="30" height="24" rx="4" fill="#fff"/>',
+  apex: '<rect width="64" height="64" rx="14" fill="#7A5FBF"/><path d="M35 12L19 35h11l-3 17 16-23H32z" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>',
+  study: '<rect width="64" height="64" rx="14" fill="#2E6DA4"/><rect x="12" y="29" width="40" height="6" rx="3" fill="#97B6D2"/><circle cx="16" cy="32" r="6" fill="#fff"/><circle cx="32" cy="32" r="6" fill="#fff"/><circle cx="48" cy="32" r="6" fill="#2E6DA4" stroke="#fff" stroke-width="4"/>',
+};
+export const iconSrc = (app) =>
+  "data:image/svg+xml;charset=utf-8," +
+  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' + ICONS[app.key] + "</svg>");
+
 // ── Theme (Study rail palette) ──────────────────────────────────────────────
 export const PALETTE = {
   light: {
@@ -186,7 +198,6 @@ export function PD1HubGate({ app, children }) {
 export function HubBar({ current, email }) {
   const theme = useTheme();
   const C = PALETTE[theme];
-  const dark = theme === "dark";
 
   const chip = (active, color) => ({
     display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 8,
@@ -208,15 +219,16 @@ export function HubBar({ current, email }) {
       h("a", {
         href: hubUrl(),
         style: { fontFamily: FONTS.display, fontWeight: 700, fontSize: 16, color: C.text,
-          textDecoration: "none", letterSpacing: "-0.01em", whiteSpace: "nowrap" },
-      }, "PD1 Hub"),
+          textDecoration: "none", letterSpacing: "-0.01em", whiteSpace: "nowrap",
+          display: "inline-flex", alignItems: "center", gap: 8 },
+      }, h("img", { src: iconSrc(HUB), alt: "", width: 20, height: 20, style: { display: "block" } }), "PD1 Hub"),
       h("div", { style: { display: "flex", gap: 4, overflowX: "auto", flex: 1, minWidth: 0 } },
         APPS.map((a) => h("a", {
           key: a.key, href: appUrl(a), className: "pd1hub-chip",
           "aria-current": a.key === current ? "page" : undefined,
           style: chip(a.key === current),
         },
-          h("span", { style: { width: 7, height: 7, borderRadius: "50%", background: a.color[dark ? 1 : 0], flexShrink: 0 } }),
+          h("img", { src: iconSrc(a), alt: "", width: 16, height: 16, style: { display: "block", flexShrink: 0 } }),
           a.name,
         )),
       ),
